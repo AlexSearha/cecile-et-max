@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { normalize } from "./text";
+import { Redis } from "@upstash/redis";
 
 export type GuestResponse = {
   attending: boolean;
@@ -27,19 +28,25 @@ export type Group = {
 
 export type Person = { firstName: string; lastName: string };
 
-// Stockage dans un simple fichier JSON (monter un volume sur DATA_DIR en prod)
+// Deux modes : Upstash Redis si les variables sont définies (obligatoire sur Vercel),
+// sinon fichier JSON dans DATA_DIR (local, Docker, Coolify).
+const REDIS_URL =
+  process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+const REDIS_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
+const redis =
+  REDIS_URL && REDIS_TOKEN
+    ? new Redis({ url: REDIS_URL, token: REDIS_TOKEN })
+    : null;
+
+const KEY = process.env.REDIS_KEY ?? "mariage:groups";
+const LOCK_KEY = `${KEY}:lock`;
+
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
 const FILE = path.join(DATA_DIR, "groups.json");
 
-// File d'attente pour éviter deux écritures simultanées
-let queue: Promise<unknown> = Promise.resolve();
-function withLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queue.then(fn, fn);
-  queue = run.catch(() => undefined);
-  return run;
-}
-
 async function readAll(): Promise<Group[]> {
+  if (redis) return (await redis.get<Group[]>(KEY)) ?? [];
   try {
     return JSON.parse(await fs.readFile(FILE, "utf8")) as Group[];
   } catch (e) {
@@ -49,24 +56,66 @@ async function readAll(): Promise<Group[]> {
 }
 
 async function writeAll(groups: Group[]): Promise<void> {
+  if (redis) {
+    await redis.set(KEY, groups);
+    return;
+  }
   await fs.mkdir(DATA_DIR, { recursive: true });
   const tmp = `${FILE}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(groups, null, 2), "utf8");
-  await fs.rename(tmp, FILE); // écriture atomique
+  await fs.rename(tmp, FILE);
+}
+
+// Verrou local : sérialise les écritures dans un même processus
+let queue: Promise<unknown> = Promise.resolve();
+function localLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queue.then(fn, fn);
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const RELEASE_SCRIPT =
+  'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end';
+
+// Verrou distribué : sur Vercel, plusieurs fonctions tournent en parallèle
+async function distributedLock<T>(fn: () => Promise<T>): Promise<T> {
+  if (!redis) return fn();
+  const token = randomUUID();
+  for (let i = 0; ; i++) {
+    const ok = await redis.set(LOCK_KEY, token, { nx: true, px: 10_000 });
+    if (ok) break;
+    if (i > 80) throw new Error("Stockage occupé, réessayez dans un instant.");
+    await sleep(100);
+  }
+  try {
+    return await fn();
+  } finally {
+    await redis.eval(RELEASE_SCRIPT, [LOCK_KEY], [token]);
+  }
+}
+
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  return localLock(() => distributedLock(fn));
 }
 
 const personKey = (p: Person) => normalize(`${p.firstName} ${p.lastName}`);
-const newGuest = (p: Person): Guest => ({ ...p, id: randomUUID(), response: null });
+const newGuest = (p: Person): Guest => ({
+  ...p,
+  id: randomUUID(),
+  response: null,
+});
 
 /** Nom affiché d'un groupe : le libellé, sinon "Prénom Nom" (seul) ou "Famille Nom". */
 export function groupName(g: Pick<Group, "label" | "members">): string {
   if (g.label) return g.label;
-  if (g.members.length === 1) return `${g.members[0].firstName} ${g.members[0].lastName}`;
+  if (g.members.length === 1)
+    return `${g.members[0].firstName} ${g.members[0].lastName}`;
   return `Famille ${g.members[0]?.lastName ?? ""}`.trim();
 }
 
 export function listGroups(): Promise<Group[]> {
-  return withLock(readAll);
+  return readAll();
 }
 
 /** Ajoute des groupes ; une personne déjà invitée (même prénom + nom) est ignorée. */
@@ -91,7 +140,12 @@ export function addGroups(
         members.push(newGuest(p));
       }
       if (members.length === 0) continue;
-      groups.push({ id: randomUUID(), label: item.label, createdAt: new Date().toISOString(), members });
+      groups.push({
+        id: randomUUID(),
+        label: item.label,
+        createdAt: new Date().toISOString(),
+        members,
+      });
       added++;
       people += members.length;
     }
@@ -105,7 +159,9 @@ export function addMember(groupId: string, person: Person): Promise<boolean> {
   return withLock(async () => {
     const groups = await readAll();
     const group = groups.find((g) => g.id === groupId);
-    const exists = groups.some((g) => g.members.some((m) => personKey(m) === personKey(person)));
+    const exists = groups.some((g) =>
+      g.members.some((m) => personKey(m) === personKey(person)),
+    );
     if (!group || exists) return false;
     group.members.push(newGuest(person));
     await writeAll(groups);
@@ -131,7 +187,12 @@ export async function searchGroups(query: string, limit = 6): Promise<Group[]> {
     .slice(0, limit);
 }
 
-export type Answer = { guestId: string; attending: boolean; sleepsOnSite: boolean; brunch: boolean };
+export type Answer = {
+  guestId: string;
+  attending: boolean;
+  sleepsOnSite: boolean;
+  brunch: boolean;
+};
 
 /**
  * Enregistre les réponses d'un groupe. Une réponse déjà donnée n'est jamais écrasée.
@@ -167,7 +228,9 @@ export function recordResponses(
 export function resetResponse(guestId: string): Promise<void> {
   return withLock(async () => {
     const groups = await readAll();
-    const member = groups.flatMap((g) => g.members).find((m) => m.id === guestId);
+    const member = groups
+      .flatMap((g) => g.members)
+      .find((m) => m.id === guestId);
     if (member) {
       member.response = null;
       await writeAll(groups);
@@ -179,7 +242,8 @@ export function resetResponse(guestId: string): Promise<void> {
 export function deleteGuest(guestId: string): Promise<void> {
   return withLock(async () => {
     const groups = await readAll();
-    for (const g of groups) g.members = g.members.filter((m) => m.id !== guestId);
+    for (const g of groups)
+      g.members = g.members.filter((m) => m.id !== guestId);
     await writeAll(groups.filter((g) => g.members.length > 0));
   });
 }
