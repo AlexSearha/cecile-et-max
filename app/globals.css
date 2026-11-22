@@ -718,3 +718,49 @@ html {
 main {
   overflow-x: clip;
 }
+
+/* Les 3 étapes dans le texte d'accueil */
+.steps-list {
+  list-style: none;
+  counter-reset: step;
+  margin: 18px auto;
+  padding: 0;
+  max-width: 460px;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+.steps-list li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  column-gap: 12px;
+  align-items: start;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.steps-list li::before {
+  content: counter(step);
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--champagne);
+  color: var(--bordeaux);
+  font-weight: 700;
+}
+.steps-list li > strong {
+  color: var(--bordeaux);
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+.steps-list li > span {
+  font-size: 0.93rem;
+  line-height: 1.55;
+  color: var(--ink);
+}

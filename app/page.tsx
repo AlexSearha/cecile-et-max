@@ -49,24 +49,33 @@ export default function Home() {
             </a>
           </p>
           <p>
-            Merci de nous confirmer ou non votre venue, ainsi que celle de vos
-            conjoint(e) et enfant(s) en cliquant sur <strong>PRESENCE</strong>,
-            afin que l&apos;on puisse s&apos;organiser plus facilement.
+            Afin de nous aider à tout organiser, merci de nous faire part de
+            votre réponse grâce au <a href="#rsvp">formulaire ci-dessous</a>. Il
+            vous suffit de rechercher votre nom : vous pourrez alors répondre
+            pour vous, ainsi que pour votre conjoint(e) et vos enfant(s), en
+            trois petites étapes.
           </p>
-          <p>
-            Le domaine possède un grand nombre de couchages, ainsi vous pourrez
-            profiter de la soirée sans vous soucier du trajet retour, moyennant
-            la somme de <strong>{wedding.sleepPrice} € par personne</strong>.
-            <br />
-            Merci de nous le faire savoir en confirmant votre réservation à
-            l'étape <strong>DORMIR</strong>, afin que nous puissions réserver.
-          </p>
-          <p>
-            Nous prévoyons également un brunch pour le lendemain.
-            <br />
-            Merci de bien vouloir nous préciser si vous y serez présent ou non
-            en confirmant votre présence à l'étape <strong>BRUNCH</strong>.
-          </p>
+          <ol className="steps-list">
+            <li>
+              <strong>Présence</strong>
+              <span>Serez-vous des nôtres pour célébrer ce jour ?</span>
+            </li>
+            <li>
+              <strong>Dormir</strong>
+              <span>
+                Le domaine dispose de nombreux couchages : profitez de la soirée
+                sans vous soucier du trajet retour, moyennant une participation
+                de <strong>{wedding.sleepPrice} € par personne</strong>.
+              </span>
+            </li>
+            <li>
+              <strong>Brunch</strong>
+              <span>
+                Nous vous attendons le lendemain pour un brunch tous ensemble.
+                Serez-vous présent(e) ?
+              </span>
+            </li>
+          </ol>
           <p>Merci pour votre aide.</p>
           <p className="venue-end">À très bientôt !</p>
           <p className="muted">{venue.address}</p>
@@ -86,6 +95,9 @@ export default function Home() {
               className="btn btn-ghost"
             >
               Itinéraire
+            </a>
+            <a href="#rsvp" className="btn">
+              Répondre
             </a>
           </div>
         </section>
