@@ -2,9 +2,9 @@
 export const wedding = {
   couple: "Cécile & Maxime",
   date: "Samedi 20 Octobre 2027",
-  time: "Cérémonie à 15h00",
+  time: "Cérémonie à 17h00",
   // Sous-titre de la page « cérémonie + vin d'honneur » (/vin-honneur)
-  vinTime: "Cérémonie à 15h00, suivie du vin d'honneur",
+  vinTime: "Cérémonie et vin d'honneur de 17h00 à 19h45",
 
   // Photo des mariés : déposez le fichier dans /public (format portrait conseillé, ex. 1200×1500)
   photo: {
