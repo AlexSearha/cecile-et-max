@@ -1,10 +1,11 @@
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { groupName, listGroups, type Guest } from "@/lib/storage";
+import { familyNames, foyerName, groupFamily, groupType, guestRole, listGroups, listMessages, type Guest } from "@/lib/storage";
+import { paysForSleep } from "@/lib/shared";
 import { isValidToken } from "@/lib/admin";
 import { wedding } from "@/lib/config";
-import { AddGroupsForm, AddMemberForm, RowActions } from "../admin-forms";
+import { AddGroupsForm, DeleteMessage, GroupActions, GuestRow } from "../admin-forms";
 import { FloralCorner } from "../../florals";
 
 export const dynamic = "force-dynamic";
@@ -26,23 +27,46 @@ export default async function AdminPage({ params }: { params: Promise<{ token: s
   const { token } = await params;
   if (!isValidToken(token)) notFound(); // lien invalide = page 404
 
-  const groups = (await listGroups())
-    .map((g) => ({ ...g, name: groupName(g) }))
-    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
-  const guests = groups.flatMap((g) => g.members);
-  const answered = guests.filter((g) => g.response);
-  const present = answered.filter((g) => g.response?.attending).length;
-  const sleeping = answered.filter((g) => g.response?.sleepsOnSite).length;
-  const brunch = answered.filter((g) => g.response?.brunch).length;
+  const [rawGroups, messages] = await Promise.all([listGroups(), listMessages()]);
+  const groups = rawGroups
+    .map((g) => ({ ...g, name: foyerName(g), kind: groupType(g), fam: groupFamily(g) }))
+    .sort(
+      (a, b) =>
+        (a.fam ?? "\uffff").localeCompare(b.fam ?? "\uffff", "fr") || a.name.localeCompare(b.name, "fr"),
+    );
+  const families = familyNames(rawGroups);
+
+  // Regroupe les foyers par famille principale (les foyers sans famille restent seuls)
+  const blocks: { fam: string | null; foyers: typeof groups }[] = [];
+  for (const g of groups) {
+    const last = blocks[blocks.length - 1];
+    if (g.fam && last && last.fam === g.fam) last.foyers.push(g);
+    else blocks.push({ fam: g.fam, foyers: [g] });
+  }
+
+  const full = groups.filter((g) => g.kind === "full").flatMap((g) => g.members);
+  const vin = groups.filter((g) => g.kind === "vin").flatMap((g) => g.members);
+  const answered = full.filter((g) => g.response);
+  const present = answered.filter((g) => g.response?.attending);
+  const kids = present.filter((g) => g.response?.ageGroup);
+  const sleeping = present.filter((g) => g.response?.sleepsOnSite);
+  const paying = sleeping.filter((g) => paysForSleep(g.response?.ageGroup ?? null)).length;
+  const brunch = present.filter((g) => g.response?.brunch).length;
+  const vinPresent = vin.filter((g) => g.response?.attending).length;
+  const vinPending = vin.filter((g) => !g.response).length;
 
   const stats: [string | number, string, string?][] = [
-    [guests.length, "Invités", `${groups.length} groupe(s)`],
-    [present, "Présents", `${answered.length - present} absent(s)`],
-    [guests.length - answered.length, "En attente"],
-    [sleeping, "Dorment sur place"],
+    [full.length, "Invités complets", `${groups.filter((g) => g.kind === "full").length} foyer(s) · ${families.length} famille(s)`],
+    [present.length, "Présents", `${answered.length - present.length} absent(s) · ${kids.length} enfant(s)`],
+    [full.length - answered.length, "En attente"],
+    [`${vinPresent}/${vin.length}`, "Vin d'honneur", `${vinPending} en attente`],
+    [sleeping.length, "Dorment sur place", `dont ${sleeping.length - paying} gratuit(s) 0-3 ans`],
     [brunch, "Au brunch"],
-    [`${sleeping * wedding.sleepPrice} €`, "Participations"],
+    [`${paying * wedding.sleepPrice} €`, "Participations", `${paying} × ${wedding.sleepPrice} €`],
+    [messages.length, "Messages"],
   ];
+
+  const yesNo = (g: Guest, v: boolean | undefined) => (g.response?.attending ? (v ? "Oui" : "Non") : "—");
 
   return (
     <main>
@@ -56,6 +80,12 @@ export default async function AdminPage({ params }: { params: Promise<{ token: s
       </header>
 
       <div className="page admin">
+        <nav className="admin-nav">
+          <a href="#invites">Invités</a>
+          <a href="#ajouter">Ajouter</a>
+          <a href="#messages">Messages ({messages.length})</a>
+        </nav>
+
         <div className="stats">
           {stats.map(([value, label, sub]) => (
             <div className="stat" key={label}>
@@ -66,12 +96,22 @@ export default async function AdminPage({ params }: { params: Promise<{ token: s
           ))}
         </div>
 
-        <section className="card">
+        <section className="card links-box">
+          <h3>Liens à envoyer</h3>
+          <span>
+            Invitation complète : <code>/</code>
+          </span>
+          <span>
+            Cérémonie + vin d&apos;honneur : <code>/vin-honneur</code>
+          </span>
+        </section>
+
+        <section className="card" id="ajouter">
           <h3>Ajouter des invités</h3>
           <AddGroupsForm token={token} />
         </section>
 
-        <div className="toolbar">
+        <div className="toolbar" id="invites">
           <h3>Liste des invités</h3>
           <a href={`/admin/${token}/export`}>Exporter en CSV ↓</a>
         </div>
@@ -86,6 +126,7 @@ export default async function AdminPage({ params }: { params: Promise<{ token: s
                   <th>Nom</th>
                   <th>Prénom</th>
                   <th>Statut</th>
+                  <th>Âge</th>
                   <th>Dort sur place</th>
                   <th>Brunch</th>
                   <th>Répondu le</th>
@@ -93,48 +134,109 @@ export default async function AdminPage({ params }: { params: Promise<{ token: s
                 </tr>
               </thead>
               <tbody>
-                {groups.map((grp) => {
-                  const done = grp.members.filter((m) => m.response).length;
+                {blocks.map((block) => {
+                  const people = block.foyers.flatMap((f) => f.members);
                   return (
-                    <Fragment key={grp.id}>
-                      <tr className="group-row">
-                        <td colSpan={7}>
-                          <div className="group-head">
-                            <span>
-                              <strong>{grp.name}</strong>{" "}
-                              <span className="muted">
-                                · {grp.members.length} pers. · {done}/{grp.members.length} réponse(s)
-                              </span>
+                    <Fragment key={block.foyers[0].id}>
+                      {block.fam && (
+                        <tr className="family-row">
+                          <td colSpan={8}>
+                            <strong>{block.fam}</strong>{" "}
+                            <span className="muted">
+                              · {block.foyers.length} foyer(s) · {people.length} pers. ·{" "}
+                              {people.filter((m) => m.response).length}/{people.length} réponse(s)
                             </span>
-                            <AddMemberForm token={token} groupId={grp.id} lastName={grp.members[0].lastName} />
-                          </div>
-                        </td>
-                      </tr>
-                      {grp.members.map((g) => (
-                        <tr key={g.id}>
-                          <td>{g.lastName}</td>
-                          <td>{g.firstName}</td>
-                          <td>
-                            <Status g={g} />
-                          </td>
-                          <td>{g.response?.attending ? (g.response.sleepsOnSite ? "Oui" : "Non") : "—"}</td>
-                          <td>{g.response?.attending ? (g.response.brunch ? "Oui" : "Non") : "—"}</td>
-                          <td>{g.response ? fmtDateTime(g.response.respondedAt) : "—"}</td>
-                          <td>
-                            <RowActions
-                              token={token}
-                              id={g.id}
-                              responded={!!g.response}
-                              name={`${g.firstName} ${g.lastName}`}
-                            />
                           </td>
                         </tr>
-                      ))}
+                      )}
+                      {block.foyers.map((grp) => {
+                        const done = grp.members.filter((m) => m.response).length;
+                        return (
+                          <Fragment key={grp.id}>
+                            <tr className={`group-row ${block.fam ? "in-family" : ""}`}>
+                              <td colSpan={8}>
+                                <div className="group-head">
+                                  <span>
+                                    <strong>{grp.name}</strong>
+                                    <span className={`type-badge ${grp.kind}`}>
+                                      {grp.kind === "vin" ? "Vin d'honneur" : "Complète"}
+                                    </span>{" "}
+                                    <span className="muted">
+                                      · {grp.members.length} pers. · {done}/{grp.members.length} réponse(s)
+                                    </span>
+                                  </span>
+                                  <GroupActions
+                                    token={token}
+                                    groupId={grp.id}
+                                    lastName={grp.members[0].lastName}
+                                    type={grp.kind}
+                                    family={grp.fam}
+                                    families={families}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                            {grp.members.map((g, i) => (
+                              <GuestRow
+                                key={g.id}
+                                token={token}
+                                id={g.id}
+                                firstName={g.firstName}
+                                lastName={g.lastName}
+                                role={guestRole(g, i)}
+                                responded={!!g.response}
+                                cells={
+                                  <>
+                                    <td>
+                                      <Status g={g} />
+                                    </td>
+                                    <td>
+                                      {grp.kind === "full" && g.response?.attending
+                                        ? g.response.ageGroup
+                                          ? `Enfant ${g.response.ageGroup}`
+                                          : "Adulte"
+                                        : "—"}
+                                    </td>
+                                    <td>{grp.kind === "full" ? yesNo(g, g.response?.sleepsOnSite) : "—"}</td>
+                                    <td>{grp.kind === "full" ? yesNo(g, g.response?.brunch) : "—"}</td>
+                                    <td>{g.response ? fmtDateTime(g.response.respondedAt) : "—"}</td>
+                                  </>
+                                }
+                              />
+                            ))}
+                          </Fragment>
+                        );
+                      })}
                     </Fragment>
                   );
                 })}
               </tbody>
             </table>
+          )}
+        </div>
+
+        <div className="toolbar" id="messages">
+          <h3>Messages ({messages.length})</h3>
+        </div>
+        <div className="messages">
+          {messages.length === 0 ? (
+            <p className="empty card">Aucun message pour le moment.</p>
+          ) : (
+            [...messages].reverse().map((m) => (
+              <article className="message" key={m.id}>
+                <div className="message-head">
+                  <span>
+                    <strong>{m.name}</strong>
+                    {m.contact && <span className="muted"> · {m.contact}</span>}
+                  </span>
+                  <span className="group-actions">
+                    <small>{fmtDateTime(m.createdAt)}</small>
+                    <DeleteMessage token={token} id={m.id} />
+                  </span>
+                </div>
+                <p>{m.message}</p>
+              </article>
+            ))
           )}
         </div>
       </div>

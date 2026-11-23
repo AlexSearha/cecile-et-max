@@ -1,11 +1,15 @@
 // Tout ce qui est personnalisable se trouve ici.
 export const wedding = {
-  couple: "Céclie & Max",
+  couple: "Cécile & Maxime",
   date: "Samedi 20 Octobre 2027",
   time: "Cérémonie à 15h00",
+  // Sous-titre de la page « cérémonie + vin d'honneur » (/vin-honneur)
+  vinTime: "Cérémonie à 15h00, suivie du vin d'honneur",
+
+  // Photo des mariés : déposez le fichier dans /public (format portrait conseillé, ex. 1200×1500)
   photo: {
-    src: "/maries.jpg",
-    alt: "photo de Cécile et Maxime",
+    src: "/couple.jpg",
+    alt: "Camille et Thomas",
   },
 
   venue: {
@@ -19,7 +23,9 @@ export const wedding = {
 
   // Participation demandée par personne pour dormir sur place (en euros)
   sleepPrice: 50,
+  // Heure à partir de laquelle les chambres sont disponibles
+  roomsFrom: "16h30",
 
-  // Affiché quand un invité a déjà répondu ou n'est pas trouvé
-  contact: "Les futurs mariés au cecile-et-max@gmail.com",
+  // Contact affiché en complément du formulaire (laisser "" pour ne pas l'afficher)
+  contact: "Posez votre question dans le formulaire prévu à cet effet",
 };
