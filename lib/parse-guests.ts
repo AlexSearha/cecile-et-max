@@ -2,7 +2,11 @@
 import { isRole, type Role } from "./shared";
 
 export type ParsedPerson = { firstName: string; lastName: string; role: Role };
-export type ParsedFoyer = { line: string; family: string | null; members: ParsedPerson[] };
+export type ParsedFoyer = {
+  line: string;
+  family: string | null;
+  members: ParsedPerson[];
+};
 
 const ROLE_WORDS: Record<string, Role> = {
   conjoint: "conjoint",
@@ -18,18 +22,16 @@ const ROLE_WORDS: Record<string, Role> = {
   "petit ami": "conjoint",
   "petite amie": "conjoint",
   enfant: "enfant",
-  fils: "enfant",
-  fille: "enfant",
+  fils: "fils",
+  fille: "fils",
+  "fils/fille": "fils",
+  "fils / fille": "fils",
   referent: "referent",
   autre: "autre",
 };
 
 const plain = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 /** "enfant", "(conjointe)", "petite amie"… -> rôle, ou null si inconnu. */
 export function roleFromWord(word: string): Role | null {
@@ -45,7 +47,10 @@ export function roleFromWord(word: string): Role | null {
  *   "Léo (enfant)"           -> prénom seul : reprend le nom du référent du foyer
  * Le rôle entre parenthèses est facultatif.
  */
-export function parsePerson(raw: string, previous?: { lastName: string }): (ParsedPerson & { roleGiven: boolean }) | null {
+export function parsePerson(
+  raw: string,
+  previous?: { lastName: string },
+): (ParsedPerson & { roleGiven: boolean }) | null {
   let s = raw.trim();
   if (!s) return null;
   let role: Role | null = null;
@@ -65,7 +70,12 @@ export function parsePerson(raw: string, previous?: { lastName: string }): (Pars
     firstName = first ?? "";
     lastName = rest.join(" ") || previous?.lastName || "";
   }
-  return { firstName, lastName, role: role ?? "autre", roleGiven: role !== null };
+  return {
+    firstName,
+    lastName,
+    role: role ?? "autre",
+    roleGiven: role !== null,
+  };
 }
 
 /** Une ligne = un foyer. Sans rôle précisé : 1re personne = référent, 2e = conjoint(e), suivantes = enfants. */
@@ -75,7 +85,13 @@ function parseFoyer(text: string): ParsedPerson[] {
     const p = parsePerson(part, members[0]);
     if (!p) continue;
     const i = members.length;
-    const role = p.roleGiven ? p.role : i === 0 ? "referent" : i === 1 ? "conjoint" : "enfant";
+    const role = p.roleGiven
+      ? p.role
+      : i === 0
+        ? "referent"
+        : i === 1
+          ? "conjoint"
+          : "enfant";
     members.push({ firstName: p.firstName, lastName: p.lastName, role });
   }
   return members;
@@ -118,4 +134,7 @@ export function parseGuestList(text: string): ParsedFoyer[] {
 }
 
 export const validPerson = (p: { firstName: string; lastName: string }) =>
-  p.firstName.length > 0 && p.lastName.length > 0 && p.firstName.length <= 80 && p.lastName.length <= 80;
+  p.firstName.length > 0 &&
+  p.lastName.length > 0 &&
+  p.firstName.length <= 80 &&
+  p.lastName.length <= 80;

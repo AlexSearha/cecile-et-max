@@ -1,7 +1,7 @@
 // Tout ce qui est personnalisable se trouve ici.
 export const wedding = {
   couple: "Cécile & Maxime",
-  date: "Samedi 20 Octobre 2027",
+  date: "Samedi 30 Octobre 2027",
   time: "Cérémonie à 17h00",
   // Sous-titre de la page « cérémonie + vin d'honneur » (/vin-honneur)
   vinTime: "Cérémonie et vin d'honneur de 17h00 à 19h45",

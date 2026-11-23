@@ -16,14 +16,19 @@ export const ageLabel = (ageGroup: AgeGroup | null) =>
   ageGroup ? `Enfant ${ageGroup} ans` : "Adulte";
 
 /** Rôle d'une personne dans son foyer. */
-export type Role = "referent" | "conjoint" | "enfant" | "autre";
+export type Role = "referent" | "conjoint" | "enfant" | "fils" | "autre";
 
 export const ROLE_LABELS: Record<Role, string> = {
   referent: "Référent",
   conjoint: "Conjoint(e)",
   enfant: "Enfant",
+  fils: "Fils/Fille",
   autre: "Autre",
 };
 
 export const isRole = (v: unknown): v is Role =>
-  v === "referent" || v === "conjoint" || v === "enfant" || v === "autre";
+  v === "referent" ||
+  v === "conjoint" ||
+  v === "enfant" ||
+  v === "autre" ||
+  v === "fils";
