@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import {
   addGroups,
   addMember,
+  addVendor,
   deleteGuest,
+  deleteVendor,
+  updateVendor,
   deleteMessage,
   resetResponse,
   setGroupFamily,
@@ -20,6 +23,7 @@ const asType = (v: string): InvitationType => (v === "vin" ? "vin" : "full");
 
 export type AddState = { message?: string; error?: string };
 export type RenameState = { ok?: boolean; error?: string };
+export type VendorState = { ok?: boolean; error?: string; nonce?: number };
 
 function refresh(token: string) {
   revalidatePath(`/admin/${token}`);
@@ -119,5 +123,36 @@ export async function deleteMessageAction(formData: FormData): Promise<void> {
   const id = str(formData.get("id"));
   if (!isValidToken(token) || !id) return;
   await deleteMessage(id);
+  refresh(token);
+}
+
+// ---------------------------- Prestataires --------------------------------
+
+function vendorFields(formData: FormData) {
+  return {
+    company: str(formData.get("company")).slice(0, 120),
+    phone: str(formData.get("phone")).slice(0, 40),
+    contact: str(formData.get("contact")).slice(0, 120),
+    comment: str(formData.get("comment")).slice(0, 3000),
+  };
+}
+
+export async function saveVendorAction(_prev: VendorState, formData: FormData): Promise<VendorState> {
+  const token = str(formData.get("token"));
+  if (!isValidToken(token)) return { error: "Accès refusé." };
+  const v = vendorFields(formData);
+  if (!v.company) return { error: "Le nom de l'entreprise est obligatoire." };
+  const id = str(formData.get("id"));
+  if (id) await updateVendor(id, v);
+  else await addVendor(v);
+  refresh(token);
+  return { ok: true, nonce: Date.now() };
+}
+
+export async function deleteVendorAction(formData: FormData): Promise<void> {
+  const token = str(formData.get("token"));
+  const id = str(formData.get("id"));
+  if (!isValidToken(token) || !id) return;
+  await deleteVendor(id);
   refresh(token);
 }

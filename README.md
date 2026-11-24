@@ -54,6 +54,10 @@ Un mauvais jeton renvoie une 404 : le back-office est invisible sans le bon lien
   passer en « vin d'honneur » / « invitation complète ».
 - Par personne : **Modifier** (prénom / nom / rôle), **Réinitialiser** la réponse, **Supprimer**.
 - Compteurs : présents, enfants, en attente, vin d'honneur, couchages (dont gratuits), brunch, total des participations.
+- **Bilan pour les prestataires** : présents, couchages (dont payants) et brunch par tranche d'âge
+  (adultes, 11-15, 4-10, 0-3 ans), avec le total et le nombre de réponses encore attendues.
+- **Prestataires** : entreprise, téléphone (cliquable), contact, commentaires ; la date de dernière mise à jour
+  est enregistrée automatiquement à chaque modification.
 - **Messages** reçus via le formulaire de contact.
 
 ## Personnalisation
@@ -70,8 +74,8 @@ Deux modes, choisis automatiquement :
 
 - **Upstash Redis** si ses variables sont présentes (`KV_REST_API_URL` / `KV_REST_API_TOKEN`, ou tout autre
   préfixe `XXX_REST_API_URL` / `XXX_REST_API_TOKEN`). **Obligatoire sur Vercel** (disque en lecture seule).
-  Clés : `mariage:groups` et `mariage:messages`. Un verrou Redis évite que deux réponses simultanées s'écrasent.
-- Sinon, fichiers `DATA_DIR/groups.json` et `DATA_DIR/messages.json` (local, Docker, Coolify).
+  Clés : `mariage:groups`, `mariage:messages` et `mariage:vendors`. Un verrou Redis évite que deux réponses simultanées s'écrasent.
+- Sinon, fichiers `DATA_DIR/groups.json`, `messages.json` et `vendors.json` (local, Docker, Coolify).
 
 ## Déploiement sur Vercel
 

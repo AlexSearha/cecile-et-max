@@ -1,4 +1,3 @@
-// Tout ce qui est personnalisable se trouve ici.
 export const wedding = {
   couple: "Cécile & Maxime",
   date: "Samedi 30 Octobre 2027",

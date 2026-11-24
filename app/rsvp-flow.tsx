@@ -1,20 +1,8 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import {
-  findFamilies,
-  submitFamily,
-  type Family,
-  type FamilyMember,
-} from "./actions";
-import {
-  AGE_GROUPS,
-  ROLE_LABELS,
-  paysForSleep,
-  type AgeGroup,
-  type InvitationType,
-  type Role,
-} from "@/lib/shared";
+import { findFamilies, submitFamily, type Family, type FamilyMember } from "./actions";
+import { AGE_GROUPS, ROLE_LABELS, paysForSleep, type AgeGroup, type InvitationType, type Role } from "@/lib/shared";
 
 type Props = { mode: InvitationType; sleepPrice: number; contact: string };
 type YesNo = "oui" | "non" | null;
@@ -25,29 +13,16 @@ type Draft = {
   sleeps: YesNo;
   brunch: YesNo;
 };
-const EMPTY: Draft = {
-  attending: null,
-  kind: null,
-  age: null,
-  sleeps: null,
-  brunch: null,
-};
+const EMPTY: Draft = { attending: null, kind: null, age: null, sleeps: null, brunch: null };
 
-const fullName = (m: { firstName: string; lastName: string }) =>
-  `${m.firstName} ${m.lastName}`;
+const fullName = (m: { firstName: string; lastName: string }) => `${m.firstName} ${m.lastName}`;
 
 /** Adulte/enfant connu grâce au rôle saisi par les mariés ; sinon la famille le précise. */
 const kindFromRole = (role: Role): "adulte" | "enfant" | null =>
-  role === "enfant"
-    ? "enfant"
-    : role === "referent" || role === "conjoint" || role === "fils"
-      ? "adulte"
-      : null;
+  role === "enfant" ? "enfant" : role === "referent" || role === "conjoint" || role === "fils" ? "adulte" : null;
 
 /** Regroupe les foyers trouvés par famille principale, en gardant l'ordre. */
-function byFamily(
-  results: Family[],
-): { family: string | null; foyers: Family[] }[] {
+function byFamily(results: Family[]): { family: string | null; foyers: Family[] }[] {
   const out: { family: string | null; foyers: Family[] }[] = [];
   for (const f of results) {
     const last = out[out.length - 1];
@@ -119,8 +94,7 @@ export default function RsvpFlow({ mode, sleepPrice, contact }: Props) {
 
       {results && results.length === 0 && (
         <p className="muted center">
-          Nous ne trouvons pas ce nom. Vérifiez l&apos;orthographe ou
-          contactez-nous via le formulaire en bas de page
+          Nous ne trouvons pas ce nom. Vérifiez l&apos;orthographe ou contactez-nous via le formulaire en bas de page
           {contact ? (
             <>
               {" "}
@@ -133,14 +107,9 @@ export default function RsvpFlow({ mode, sleepPrice, contact }: Props) {
 
       {results && results.length > 0 && (
         <div className="results-groups">
-          {results.length > 1 && (
-            <p className="hint center">Choisissez votre foyer :</p>
-          )}
+          {results.length > 1 && <p className="hint center">Choisissez votre foyer :</p>}
           {byFamily(results).map((block) => (
-            <div
-              key={block.foyers[0].id}
-              className={block.family ? "family-block" : undefined}
-            >
+            <div key={block.foyers[0].id} className={block.family ? "family-block" : undefined}>
               {block.family && <p className="family-title">{block.family}</p>}
               <ul className="results">
                 {block.foyers.map((f) => {
@@ -153,9 +122,7 @@ export default function RsvpFlow({ mode, sleepPrice, contact }: Props) {
                             <span key={m.id}>{fullName(m)}</span>
                           ))}
                         </span>
-                        <span className={done ? "tag tag-no" : "arrow"}>
-                          {done ? "Déjà répondu" : "→"}
-                        </span>
+                        <span className={done ? "tag tag-no" : "arrow"}>{done ? "Déjà répondu" : "→"}</span>
                       </button>
                     </li>
                   );
@@ -169,20 +136,12 @@ export default function RsvpFlow({ mode, sleepPrice, contact }: Props) {
   );
 }
 
-function ResponseTags({
-  r,
-  mode,
-}: {
-  r: NonNullable<FamilyMember["response"]>;
-  mode: InvitationType;
-}) {
+function ResponseTags({ r, mode }: { r: NonNullable<FamilyMember["response"]>; mode: InvitationType }) {
   if (!r.attending) return <span className="tag tag-no">Absent(e)</span>;
   return (
     <span className="tags">
       <span className="tag tag-yes">Présent(e)</span>
-      {mode === "full" && r.ageGroup && (
-        <span className="tag tag-age">{r.ageGroup} ans</span>
-      )}
+      {mode === "full" && r.ageGroup && <span className="tag tag-age">{r.ageGroup} ans</span>}
       {r.sleepsOnSite && <span className="tag tag-sleep">Dort sur place</span>}
       {r.brunch && <span className="tag tag-brunch">Brunch</span>}
     </span>
@@ -218,36 +177,24 @@ function FamilyForm({
 
   const filled = todo.filter((m) => draft(m.id).attending);
   const coming = (id: string) => draft(id).attending === "oui";
-  const roleOf = (id: string): Role =>
-    family.members.find((m) => m.id === id)?.role ?? "autre";
+  const roleOf = (id: string): Role => family.members.find((m) => m.id === id)?.role ?? "autre";
   const kindOf = (id: string) => kindFromRole(roleOf(id)) ?? draft(id).kind;
-  const ageOf = (id: string): AgeGroup | null =>
-    kindOf(id) === "enfant" ? draft(id).age : null;
+  const ageOf = (id: string): AgeGroup | null => (kindOf(id) === "enfant" ? draft(id).age : null);
   const payingSleepers = filled.filter(
-    (m) =>
-      coming(m.id) && draft(m.id).sleeps === "oui" && paysForSleep(ageOf(m.id)),
+    (m) => coming(m.id) && draft(m.id).sleeps === "oui" && paysForSleep(ageOf(m.id)),
   ).length;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (filled.length === 0)
-      return setError("Merci de répondre pour au moins une personne.");
+    if (filled.length === 0) return setError("Merci de répondre pour au moins une personne.");
     if (full) {
       for (const m of filled.filter((x) => coming(x.id))) {
         const d = draft(m.id);
-        if (!kindOf(m.id))
-          return setError(
-            `Merci d'indiquer si ${m.firstName} est un adulte ou un enfant.`,
-          );
-        if (kindOf(m.id) === "enfant" && !d.age)
-          return setError(
-            `Merci d'indiquer la tranche d'âge de ${m.firstName}.`,
-          );
-        if (!d.sleeps)
-          return setError(`Merci d'indiquer si ${m.firstName} dort sur place.`);
-        if (!d.brunch)
-          return setError(`Merci d'indiquer si ${m.firstName} sera au brunch.`);
+        if (!kindOf(m.id)) return setError(`Merci d'indiquer si ${m.firstName} est un adulte ou un enfant.`);
+        if (kindOf(m.id) === "enfant" && !d.age) return setError(`Merci d'indiquer la tranche d'âge de ${m.firstName}.`);
+        if (!d.sleeps) return setError(`Merci d'indiquer si ${m.firstName} dort sur place.`);
+        if (!d.brunch) return setError(`Merci d'indiquer si ${m.firstName} sera au brunch.`);
       }
     }
 
@@ -260,18 +207,13 @@ function FamilyForm({
     }));
     startTransition(async () => {
       const res = await submitFamily(family.id, answers);
-      if (!res.ok)
-        return setError("Une erreur est survenue, merci de réessayer.");
+      if (!res.ok) return setError("Une erreur est survenue, merci de réessayer.");
       const saved = res.family.members.filter((m) => res.saved.includes(m.id));
-      const nights = saved.filter(
-        (m) => m.response?.sleepsOnSite && paysForSleep(m.response.ageGroup),
-      ).length;
+      const nights = saved.filter((m) => m.response?.sleepsOnSite && paysForSleep(m.response.ageGroup)).length;
       setThanks(
         saved.length
           ? `Réponse enregistrée pour ${saved.map((m) => m.firstName).join(", ")}.` +
-              (nights
-                ? ` Participation couchage : ${nights} × ${sleepPrice} € = ${nights * sleepPrice} €.`
-                : "")
+              (nights ? ` Participation couchage : ${nights} × ${sleepPrice} € = ${nights * sleepPrice} €.` : "")
           : "Ces personnes avaient déjà répondu entre-temps.",
       );
       setFamily(res.family);
@@ -298,16 +240,11 @@ function FamilyForm({
           const d = draft(m.id);
           const free = !paysForSleep(ageOf(m.id));
           return (
-            <li
-              key={m.id}
-              className={`member ${m.response ? "member-done" : ""}`}
-            >
+            <li key={m.id} className={`member ${m.response ? "member-done" : ""}`}>
               <div className="member-head">
                 <span>
                   <strong>{fullName(m)}</strong>
-                  {(m.role === "conjoint" ||
-                    m.role === "enfant" ||
-                    m.role === "fils") && (
+                  {(m.role === "conjoint" || m.role === "enfant" || m.role === "fils") && (
                     <small className="role">{ROLE_LABELS[m.role]}</small>
                   )}
                 </span>
@@ -317,11 +254,7 @@ function FamilyForm({
                 <>
                   <Choice
                     step={full ? 1 : undefined}
-                    legend={
-                      full
-                        ? "Présence au mariage"
-                        : "Présence à la cérémonie et au vin d'honneur"
-                    }
+                    legend={full ? "Présence au mariage" : "Présence à la cérémonie et au vin d'honneur"}
                     name={`a-${m.id}`}
                     value={d.attending}
                     options={[
@@ -342,12 +275,7 @@ function FamilyForm({
                             ["adulte", "Adulte"],
                             ["enfant", "Enfant"],
                           ]}
-                          onChange={(v) =>
-                            setDraft(m.id, {
-                              kind: v,
-                              age: v === "adulte" ? null : d.age,
-                            })
-                          }
+                          onChange={(v) => setDraft(m.id, { kind: v, age: v === "adulte" ? null : d.age })}
                         />
                       )}
                       {kindOf(m.id) === "enfant" && (
@@ -356,19 +284,13 @@ function FamilyForm({
                           legend="Tranche d'âge"
                           name={`g-${m.id}`}
                           value={d.age}
-                          options={AGE_GROUPS.map(
-                            (g) => [g, `${g} ans`] as [AgeGroup, string],
-                          )}
+                          options={AGE_GROUPS.map((g) => [g, `${g} ans`] as [AgeGroup, string])}
                           onChange={(v) => setDraft(m.id, { age: v })}
                         />
                       )}
                       <Choice
                         step={2}
-                        legend={
-                          free
-                            ? "Dormir sur place (gratuit pour les 0-3 ans)"
-                            : `Dormir sur place (${sleepPrice} €)`
-                        }
+                        legend={free ? "Dormir sur place (gratuit pour les 0-3 ans)" : `Dormir sur place (${sleepPrice} €)`}
                         name={`s-${m.id}`}
                         value={d.sleeps}
                         options={[
@@ -399,15 +321,8 @@ function FamilyForm({
 
       {family.members.some((m) => m.response) && (
         <p className="hint center">
-          Les réponses déjà enregistrées ne peuvent plus être modifiées en
-          ligne. Pour un changement, écrivez-nous via le formulaire de contact
-          {contact ? (
-            <>
-              {" "}
-              ou contactez <strong>{contact}</strong>
-            </>
-          ) : null}
-          .
+          Les réponses déjà enregistrées ne peuvent plus être modifiées en ligne. Pour un changement, écrivez-nous via
+          le formulaire de contact{contact ? <> ou contactez <strong>{contact}</strong></> : null}.
         </p>
       )}
 
@@ -421,11 +336,7 @@ function FamilyForm({
           )}
           {error && <p className="error">{error}</p>}
           <button type="submit" className="btn" disabled={pending}>
-            {pending
-              ? "Envoi…"
-              : filled.length > 1
-                ? `Envoyer les ${filled.length} réponses`
-                : "Envoyer ma réponse"}
+            {pending ? "Envoi…" : filled.length > 1 ? `Envoyer les ${filled.length} réponses` : "Envoyer ma réponse"}
           </button>
           {!thanks && (
             <button type="button" className="link" onClick={onBack}>
@@ -434,9 +345,7 @@ function FamilyForm({
           )}
         </>
       ) : (
-        !thanks && (
-          <p className="center">Tout le monde a déjà répondu, merci !</p>
-        )
+        !thanks && <p className="center">Tout le monde a déjà répondu, merci !</p>
       )}
 
       {(thanks || todo.length === 0) && (
@@ -474,13 +383,7 @@ function Choice<V extends string>({
       <div className="choices">
         {options.map(([v, label]) => (
           <label key={v} className="choice">
-            <input
-              type="radio"
-              name={name}
-              value={v}
-              checked={value === v}
-              onChange={() => onChange(v)}
-            />
+            <input type="radio" name={name} value={v} checked={value === v} onChange={() => onChange(v)} />
             <span>{label}</span>
           </label>
         ))}

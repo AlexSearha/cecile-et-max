@@ -42,6 +42,15 @@ export type Message = {
   createdAt: string;
 };
 
+export type Vendor = {
+  id: string;
+  company: string;
+  phone: string;
+  contact: string;
+  comment: string;
+  updatedAt: string; // ISO, mis à jour à chaque modification
+};
+
 export type Person = { firstName: string; lastName: string };
 export type PersonWithRole = Person & { role: Role };
 
@@ -85,7 +94,7 @@ const PREFIX = process.env.REDIS_PREFIX ?? "mariage";
 const LOCK_KEY = `${PREFIX}:lock`;
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
 
-type Collection = "groups" | "messages";
+type Collection = "groups" | "messages" | "vendors";
 
 async function load<T>(name: Collection): Promise<T[]> {
   if (redis) return (await redis.get<T[]>(`${PREFIX}:${name}`)) ?? [];
@@ -357,6 +366,42 @@ export function deleteMessage(id: string): Promise<void> {
     await save(
       "messages",
       messages.filter((m) => m.id !== id),
+    );
+  });
+}
+
+// ---------------------------- Prestataires --------------------------------
+
+export type VendorInput = Omit<Vendor, "id" | "updatedAt">;
+
+export function listVendors(): Promise<Vendor[]> {
+  return load<Vendor>("vendors");
+}
+
+export function addVendor(v: VendorInput): Promise<void> {
+  return withLock(async () => {
+    const vendors = await load<Vendor>("vendors");
+    vendors.push({ ...v, id: randomUUID(), updatedAt: new Date().toISOString() });
+    await save("vendors", vendors);
+  });
+}
+
+export function updateVendor(id: string, v: VendorInput): Promise<void> {
+  return withLock(async () => {
+    const vendors = await load<Vendor>("vendors");
+    const vendor = vendors.find((x) => x.id === id);
+    if (!vendor) return;
+    Object.assign(vendor, v, { updatedAt: new Date().toISOString() });
+    await save("vendors", vendors);
+  });
+}
+
+export function deleteVendor(id: string): Promise<void> {
+  return withLock(async () => {
+    const vendors = await load<Vendor>("vendors");
+    await save(
+      "vendors",
+      vendors.filter((x) => x.id !== id),
     );
   });
 }

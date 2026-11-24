@@ -1,37 +1,28 @@
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useActionState, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ROLE_LABELS, type Role } from "@/lib/shared";
 import {
   addGroupsAction,
   addMemberAction,
   deleteGuestAction,
   deleteMessageAction,
+  deleteVendorAction,
+  saveVendorAction,
   renameGuestAction,
   resetGuestAction,
   setGroupFamilyAction,
   setGroupTypeAction,
   type AddState,
   type RenameState,
+  type VendorState,
 } from "./actions";
 
 const confirmSubmit = (message: string) => (e: FormEvent) => {
   if (!confirm(message)) e.preventDefault();
 };
 
-function Hidden({
-  token,
-  fields,
-}: {
-  token: string;
-  fields: Record<string, string>;
-}) {
+function Hidden({ token, fields }: { token: string; fields: Record<string, string> }) {
   return (
     <>
       <input type="hidden" name="token" value={token} />
@@ -43,10 +34,7 @@ function Hidden({
 }
 
 export function AddGroupsForm({ token }: { token: string }) {
-  const [state, action, pending] = useActionState<AddState, FormData>(
-    addGroupsAction,
-    {},
-  );
+  const [state, action, pending] = useActionState<AddState, FormData>(addGroupsAction, {});
   return (
     <form action={action} className="form">
       <input type="hidden" name="token" value={token} />
@@ -75,24 +63,19 @@ export function AddGroupsForm({ token }: { token: string }) {
       </label>
       <ul className="hint help">
         <li>
-          <strong>Un foyer par ligne</strong>, personnes séparées par des
-          virgules. Sans précision : 1<sup>re</sup> personne = référent, 2
-          <sup>e</sup> = conjoint(e), suivantes = enfants.
+          <strong>Un foyer par ligne</strong>, personnes séparées par des virgules. Sans précision : 1<sup>re</sup>{" "}
+          personne = référent, 2<sup>e</sup> = conjoint(e), suivantes = enfants.
         </li>
         <li>
-          <strong>Rôle</strong> entre parenthèses si besoin :{" "}
-          <code>(conjoint)</code> <code>(conjointe)</code> <code>(enfant)</code>{" "}
-          <code>(fils)</code> <code>(autre)</code>
+          <strong>Rôle</strong> entre parenthèses si besoin : <code>(conjoint)</code> <code>(conjointe)</code>{" "}
+          <code>(enfant)</code> <code>(autre)</code>
         </li>
         <li>
-          <strong>Famille principale</strong> : une ligne{" "}
-          <code>Famille Dupond :</code> puis ses foyers ; une ligne vide termine
-          la famille. Ou sur une ligne :{" "}
-          <code>Famille Roux : Marc Roux, Lou</code>
+          <strong>Famille principale</strong> : une ligne <code>Famille Dupond :</code> puis ses foyers ; une ligne
+          vide termine la famille. Ou sur une ligne : <code>Famille Roux : Marc Roux, Lou</code>
         </li>
         <li>
-          Un prénom seul reprend le nom du référent :{" "}
-          <code>Paul Dupond, Julie, Léo</code>. Prénom composé :{" "}
+          Un prénom seul reprend le nom du référent : <code>Paul Dupond, Julie, Léo</code>. Prénom composé :{" "}
           <code>Jean Pierre ; Martin</code>
         </li>
       </ul>
@@ -142,12 +125,7 @@ export function GroupActions({
       </form>
       <form action={addMemberAction} className="add-member">
         <Hidden token={token} fields={{ groupId, lastName }} />
-        <input
-          name="name"
-          placeholder="Ajouter : Prénom (enfant)…"
-          maxLength={160}
-          required
-        />
+        <input name="name" placeholder="Ajouter : Prénom (enfant)…" maxLength={160} required />
         <button className="mini">+ Ajouter</button>
       </form>
       <form
@@ -159,9 +137,7 @@ export function GroupActions({
         )}
       >
         <Hidden token={token} fields={{ groupId, type: next }} />
-        <button className="mini">
-          {next === "vin" ? "→ Vin d'honneur" : "→ Invitation complète"}
-        </button>
+        <button className="mini">{next === "vin" ? "→ Vin d'honneur" : "→ Invitation complète"}</button>
       </form>
     </div>
   );
@@ -186,10 +162,7 @@ export function GuestRow({
   cells: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
-  const [state, action, pending] = useActionState<RenameState, FormData>(
-    renameGuestAction,
-    {},
-  );
+  const [state, action, pending] = useActionState<RenameState, FormData>(renameGuestAction, {});
   const name = `${firstName} ${lastName}`;
 
   useEffect(() => {
@@ -202,20 +175,8 @@ export function GuestRow({
         <td colSpan={2}>
           <form action={action} className="edit-name add-member">
             <Hidden token={token} fields={{ id }} />
-            <input
-              name="firstName"
-              defaultValue={firstName}
-              placeholder="Prénom"
-              required
-              maxLength={80}
-            />
-            <input
-              name="lastName"
-              defaultValue={lastName}
-              placeholder="Nom"
-              required
-              maxLength={80}
-            />
+            <input name="firstName" defaultValue={firstName} placeholder="Prénom" required maxLength={80} />
+            <input name="lastName" defaultValue={lastName} placeholder="Nom" required maxLength={80} />
             <select name="role" defaultValue={role}>
               {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
                 <option key={r} value={r}>
@@ -226,11 +187,7 @@ export function GuestRow({
             <button className="mini" disabled={pending}>
               Enregistrer
             </button>
-            <button
-              type="button"
-              className="mini del"
-              onClick={() => setEditing(false)}
-            >
+            <button type="button" className="mini del" onClick={() => setEditing(false)}>
               Annuler
             </button>
           </form>
@@ -247,35 +204,24 @@ export function GuestRow({
       <td>{lastName}</td>
       <td>
         {firstName}
-        {role !== "referent" && (
-          <span className="role-tag">{ROLE_LABELS[role]}</span>
-        )}
+        {role !== "referent" && <span className="role-tag">{ROLE_LABELS[role]}</span>}
       </td>
       {cells}
       <td>
         <div className="row-actions">
-          <button
-            type="button"
-            className="mini"
-            onClick={() => setEditing(true)}
-          >
+          <button type="button" className="mini" onClick={() => setEditing(true)}>
             Modifier
           </button>
           {responded && (
             <form
               action={resetGuestAction}
-              onSubmit={confirmSubmit(
-                `Effacer la réponse de ${name} ? Il/elle pourra répondre à nouveau.`,
-              )}
+              onSubmit={confirmSubmit(`Effacer la réponse de ${name} ? Il/elle pourra répondre à nouveau.`)}
             >
               <Hidden token={token} fields={{ id }} />
               <button className="mini">Réinitialiser</button>
             </form>
           )}
-          <form
-            action={deleteGuestAction}
-            onSubmit={confirmSubmit(`Supprimer ${name} de la liste ?`)}
-          >
+          <form action={deleteGuestAction} onSubmit={confirmSubmit(`Supprimer ${name} de la liste ?`)}>
             <Hidden token={token} fields={{ id }} />
             <button className="mini del">Supprimer</button>
           </form>
@@ -287,12 +233,111 @@ export function GuestRow({
 
 export function DeleteMessage({ token, id }: { token: string; id: string }) {
   return (
-    <form
-      action={deleteMessageAction}
-      onSubmit={confirmSubmit("Supprimer ce message ?")}
-    >
+    <form action={deleteMessageAction} onSubmit={confirmSubmit("Supprimer ce message ?")}>
       <Hidden token={token} fields={{ id }} />
       <button className="mini del">Supprimer</button>
     </form>
+  );
+}
+
+// ---------------------------- Prestataires --------------------------------
+
+export type VendorView = {
+  id: string;
+  company: string;
+  phone: string;
+  contact: string;
+  comment: string;
+  updatedAt: string;
+};
+
+/** Formulaire d'ajout (sans vendor) ou de modification (avec vendor). */
+export function VendorForm({
+  token,
+  vendor,
+  onDone,
+}: {
+  token: string;
+  vendor?: VendorView;
+  onDone?: () => void;
+}) {
+  const [state, action, pending] = useActionState<VendorState, FormData>(saveVendorAction, {});
+
+  useEffect(() => {
+    if (state.ok) onDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.nonce]);
+
+  return (
+    <form action={action} className="form vendor-form">
+      <Hidden token={token} fields={{ id: vendor?.id ?? "" }} />
+      <div className="vendor-grid">
+        <label>
+          Entreprise
+          <input name="company" defaultValue={vendor?.company} required maxLength={120} placeholder="Ex. : Traiteur Dupuis" />
+        </label>
+        <label>
+          Téléphone
+          <input name="phone" type="tel" defaultValue={vendor?.phone} maxLength={40} placeholder="06 00 00 00 00" />
+        </label>
+        <label>
+          Contact
+          <input name="contact" defaultValue={vendor?.contact} maxLength={120} placeholder="Nom de l'interlocuteur" />
+        </label>
+      </div>
+      <label>
+        Commentaires
+        <textarea name="comment" defaultValue={vendor?.comment} rows={3} maxLength={3000} placeholder="Devis, acompte, horaires…" />
+      </label>
+      {state.error && <p className="error">{state.error}</p>}
+      {!vendor && state.ok && <p className="ok">Prestataire ajouté.</p>}
+      <div className="vendor-buttons">
+        <button className="btn" disabled={pending}>
+          {pending ? "Enregistrement…" : vendor ? "Enregistrer" : "Ajouter le prestataire"}
+        </button>
+        {vendor && (
+          <button type="button" className="btn btn-ghost" onClick={onDone}>
+            Annuler
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+export function VendorRow({ token, vendor, updatedLabel }: { token: string; vendor: VendorView; updatedLabel: string }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <tr className="editing">
+        <td colSpan={6}>
+          <VendorForm token={token} vendor={vendor} onDone={() => setEditing(false)} />
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td>
+        <strong>{vendor.company}</strong>
+      </td>
+      <td>{vendor.phone ? <a href={`tel:${vendor.phone.replace(/\s+/g, "")}`}>{vendor.phone}</a> : "—"}</td>
+      <td>{vendor.contact || "—"}</td>
+      <td>{updatedLabel}</td>
+      <td className="vendor-comment">{vendor.comment || "—"}</td>
+      <td>
+        <div className="row-actions">
+          <button type="button" className="mini" onClick={() => setEditing(true)}>
+            Modifier
+          </button>
+          <form action={deleteVendorAction} onSubmit={confirmSubmit(`Supprimer ${vendor.company} ?`)}>
+            <Hidden token={token} fields={{ id: vendor.id }} />
+            <button className="mini del">Supprimer</button>
+          </form>
+        </div>
+      </td>
+    </tr>
   );
 }
